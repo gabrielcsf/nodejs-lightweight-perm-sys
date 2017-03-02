@@ -93,3 +93,4 @@ test.tap
 # Xcode workspaces and project folders
 *.xcodeproj
 *.xcworkspace
+*.DS_*
