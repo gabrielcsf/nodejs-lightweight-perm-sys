@@ -5729,6 +5729,7 @@ Local<Context> v8::Context::New(v8::Isolate* external_isolate,
                                 v8::ExtensionConfiguration* extensions,
                                 v8::MaybeLocal<ObjectTemplate> global_template,
                                 v8::MaybeLocal<Value> global_object) {
+
   return NewContext(external_isolate, extensions, global_template,
                     global_object, 0);
 }
@@ -5811,13 +5812,20 @@ v8::Local<v8::Object> Context::Global() {
   i::Handle<i::Object> global(context->global_proxy(), isolate);
   // TODO(dcarney): This should always return the global proxy
   // but can't presently as calls to GetProtoype will return the wrong result.
-  if (i::Handle<i::JSGlobalProxy>::cast(
-          global)->IsDetachedFrom(context->global_object())) {
+  if (i::Handle<i::JSGlobalProxy>::cast(global)->IsDetachedFrom(context->global_object())) {
     global = i::Handle<i::Object>(context->global_object(), isolate);
   }
   return Utils::ToLocal(i::Handle<i::JSObject>::cast(global));
 }
 
+void Context::SetGlobal(Local<Object> newglobal) {
+  i::Handle<i::Context> context = Utils::OpenHandle(this);
+  i::Handle<i::Object> newglobal_handle = Utils::OpenHandle(*newglobal);
+  // context->set_extension(i::JSObject::cast(*newglobal_handle));
+  context->set_global_proxy(i::JSObject::cast(*newglobal_handle));
+  // context->set_global_proxy_object(i::JSGlobalProxy::cast(*newglobal_handle));
+  // context->set_extension(i::JSGlobalProxy::cast(*newglobal_handle));
+}
 
 void Context::DetachGlobal() {
   i::Handle<i::Context> context = Utils::OpenHandle(this);

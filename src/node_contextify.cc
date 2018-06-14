@@ -42,7 +42,7 @@ using v8::Uint8Array;
 using v8::UnboundScript;
 using v8::Value;
 using v8::WeakCallbackInfo;
-
+using v8::Utils;
 
 class ContextifyContext {
  protected:
@@ -65,6 +65,16 @@ class ContextifyContext {
     context_.MarkIndependent();
   }
 
+  ContextifyContext(Environment* env, Local<Object> sandbox_obj, bool reuseContext) : env_(env) {
+    Local<Context> v8_context = CreateV8Context2(env, sandbox_obj);
+    context_.Reset(env->isolate(), v8_context);
+
+    // Allocation failure or maximum call stack size reached
+    if (context_.IsEmpty())
+      return;
+    context_.SetWeak(this, WeakCallback, v8::WeakCallbackType::kParameter);
+    context_.MarkIndependent();
+  }
 
   ~ContextifyContext() {
     context_.Reset();
@@ -231,6 +241,53 @@ class ContextifyContext {
     return scope.Escape(ctx);
   }
 
+  Local<Context> CreateV8Context2(Environment* env, Local<Object> sandbox_obj) {
+    
+    EscapableHandleScope scope(env->isolate());
+    // Local<FunctionTemplate> function_template =
+    //     FunctionTemplate::New(env->isolate());
+    // function_template->SetHiddenPrototype(true);
+
+    // function_template->SetClassName(sandbox_obj->GetConstructorName());
+
+    // Local<ObjectTemplate> object_template =
+    //     function_template->InstanceTemplate();
+
+    // NamedPropertyHandlerConfiguration config(GlobalPropertyGetterCallback,
+    //                                          GlobalPropertySetterCallback,
+    //                                          GlobalPropertyQueryCallback,
+    //                                          GlobalPropertyDeleterCallback,
+    //                                          GlobalPropertyEnumeratorCallback,
+    //                                          CreateDataWrapper(env));
+    // object_template->SetHandler(config);
+
+    // Local<Context> ctx = Context::New(env->isolate(), nullptr, object_template);
+    Local<Context> ctx = env->context();
+
+    if (ctx.IsEmpty()) {
+      env->ThrowError("Could not instantiate context");
+      return Local<Context>();
+    }
+
+    ctx->SetSecurityToken(env->context()->GetSecurityToken());
+
+    // We need to tie the lifetime of the sandbox object with the lifetime of
+    // newly created context. We do this by making them hold references to each
+    // other. The context can directly hold a reference to the sandbox as an
+    // embedder data field. However, we cannot hold a reference to a v8::Context
+    // directly in an Object, we instead hold onto the new context's global
+    // object instead (which then has a reference to the context).
+    // ctx->SetEmbedderData(kSandboxObjectIndex, sandbox_obj);
+    ctx->SetEmbedderData(kSandboxObjectIndex, sandbox_obj);
+    sandbox_obj->SetPrivate(env->context(),
+                            env->contextify_global_private_symbol(),
+                            ctx->Global());
+
+    env->AssignToContext(ctx);
+
+    return ctx;
+  }
+
 
   static void Init(Environment* env, Local<Object> target) {
     Local<FunctionTemplate> function_template =
@@ -240,6 +297,7 @@ class ContextifyContext {
 
     env->SetMethod(target, "runInDebugContext", RunInDebugContext);
     env->SetMethod(target, "makeContext", MakeContext);
+    env->SetMethod(target, "reuseContext", MakeCheapContext);
     env->SetMethod(target, "isContext", IsContext);
   }
 
@@ -272,8 +330,38 @@ class ContextifyContext {
     args.GetReturnValue().Set(script.ToLocalChecked()->Run());
   }
 
+  static void MakeCheapContext(const FunctionCallbackInfo<Value>& args) {
+    Environment* env = Environment::GetCurrent(args);
 
-  static void MakeContext(const FunctionCallbackInfo<Value>& args) {
+    if (!args[0]->IsObject()) {
+      return env->ThrowTypeError("sandbox argument must be an object.");
+    }
+    Local<Object> sandbox = args[0].As<Object>();
+
+    // Don't allow contextifying a sandbox multiple times.
+    CHECK(
+        !sandbox->HasPrivate(
+            env->context(),
+            env->contextify_context_private_symbol()).FromJust());
+
+    TryCatch try_catch(env->isolate());
+    ContextifyContext* context = new ContextifyContext(env, sandbox, true);
+
+    if (try_catch.HasCaught()) {
+      try_catch.ReThrow();
+      return;
+    }
+
+    if (context->context().IsEmpty())
+      return;
+
+    sandbox->SetPrivate(
+        env->context(),
+        env->contextify_context_private_symbol(),
+        External::New(env->isolate(), context));
+  }
+
+    static void MakeContext(const FunctionCallbackInfo<Value>& args) {
     Environment* env = Environment::GetCurrent(args);
 
     if (!args[0]->IsObject()) {
@@ -303,7 +391,6 @@ class ContextifyContext {
         env->contextify_context_private_symbol(),
         External::New(env->isolate(), context));
   }
-
 
   static void IsContext(const FunctionCallbackInfo<Value>& args) {
     Environment* env = Environment::GetCurrent(args);
@@ -346,27 +433,31 @@ class ContextifyContext {
   static void GlobalPropertyGetterCallback(
       Local<Name> property,
       const PropertyCallbackInfo<Value>& args) {
+
+    // printf("****** GlobalPropertyGetterCallback %d\n", property->GetIdentityHash());
+
     ContextifyContext* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
 
     // Still initializing
-    if (ctx->context_.IsEmpty())
+    if (ctx->context_.IsEmpty()) {
       return;
+    }
 
     Local<Context> context = ctx->context();
     Local<Object> sandbox = ctx->sandbox();
+
     MaybeLocal<Value> maybe_rv =
         sandbox->GetRealNamedProperty(context, property);
     if (maybe_rv.IsEmpty()) {
       maybe_rv =
           ctx->global_proxy()->GetRealNamedProperty(context, property);
     }
-
     Local<Value> rv;
     if (maybe_rv.ToLocal(&rv)) {
-      if (rv == sandbox)
+      if (rv == sandbox) {
         rv = ctx->global_proxy();
-
+      }
       args.GetReturnValue().Set(rv);
     }
   }
@@ -376,6 +467,7 @@ class ContextifyContext {
       Local<Name> property,
       Local<Value> value,
       const PropertyCallbackInfo<Value>& args) {
+    //printf("****** GlobalPropertySetterCallback\n");
     ContextifyContext* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
 
@@ -402,6 +494,8 @@ class ContextifyContext {
   static void GlobalPropertyQueryCallback(
       Local<Name> property,
       const PropertyCallbackInfo<Integer>& args) {
+    //printf("****** GlobalPropertyQueryCallback\n");
+
     ContextifyContext* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
 
@@ -429,6 +523,7 @@ class ContextifyContext {
   static void GlobalPropertyDeleterCallback(
       Local<Name> property,
       const PropertyCallbackInfo<Boolean>& args) {
+    //printf("****** GlobalPropertyDeleterCallback\n");
     ContextifyContext* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
 
@@ -445,6 +540,7 @@ class ContextifyContext {
 
   static void GlobalPropertyEnumeratorCallback(
       const PropertyCallbackInfo<Array>& args) {
+    //printf("****** GlobalPropertyEnumeratorCallback\n");
     ContextifyContext* ctx;
     ASSIGN_OR_RETURN_UNWRAP(&ctx, args.Data().As<Object>());
 
@@ -471,6 +567,7 @@ class ContextifyScript : public BaseObject {
     script_tmpl->SetClassName(class_name);
     env->SetProtoMethod(script_tmpl, "runInContext", RunInContext);
     env->SetProtoMethod(script_tmpl, "runInThisContext", RunInThisContext);
+    env->SetProtoMethod(script_tmpl, "runInProxiedContext", RunInProxiedContext);
 
     target->Set(class_name, script_tmpl->GetFunction());
     env->set_script_context_constructor_template(script_tmpl);
@@ -563,7 +660,6 @@ class ContextifyScript : public BaseObject {
            env->script_context_constructor_template()->HasInstance(value);
   }
 
-
   // args: [options]
   static void RunInThisContext(const FunctionCallbackInfo<Value>& args) {
     Environment* env = Environment::GetCurrent(args);
@@ -582,6 +678,49 @@ class ContextifyScript : public BaseObject {
     EvalMachine(env, timeout, display_errors, break_on_sigint, args,
                 &try_catch);
   }
+  
+    // ---------------------------------------------------------------------------
+
+  // args: global object (sandbox), [options]
+  static void RunInProxiedContext(const FunctionCallbackInfo<Value>& args) {
+    Environment* env = Environment::GetCurrent(args);
+
+    int64_t timeout;
+    bool display_errors;
+    bool break_on_sigint;
+
+    Local<Object> proxiedGlobal = args[0].As<Object>();
+
+    TryCatch try_catch(env->isolate());
+    timeout = GetTimeoutArg(env, args[1]);
+    display_errors = GetDisplayErrorsArg(env, args[1]);
+    break_on_sigint = GetBreakOnSigintArg(env, args[1]);
+    if (try_catch.HasCaught()) {
+      try_catch.ReThrow();
+      return;
+    }
+
+    EscapableHandleScope scope(env->isolate());
+    Local<Context> ctx = env->context();
+
+    if (ctx.IsEmpty()) {
+      env->ThrowError("Could not find context");
+    }
+
+    ctx->SetGlobal(proxiedGlobal);
+    // printf("GLOBAL SET WORKED: %d\n", env->context()->Global()->GetIdentityHash() == proxiedGlobal->GetIdentityHash());
+    const int index = Environment::kContextEmbedderDataIndex;
+    
+    ctx->SetAlignedPointerInEmbedderData(index, env);
+    ctx->SetEmbedderData(index, proxiedGlobal);
+    env->AssignToContext(ctx);
+    Context::Scope context_scope(env->context());
+
+    // Do the eval within this context
+    EvalMachine(env, timeout, display_errors, break_on_sigint, args,
+                &try_catch);
+  }
+  // ---------------------------------------------------------------------------
 
   // args: sandbox, [options]
   static void RunInContext(const FunctionCallbackInfo<Value>& args) {

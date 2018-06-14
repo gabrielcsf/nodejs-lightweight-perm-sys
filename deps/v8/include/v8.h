@@ -7199,6 +7199,8 @@ class V8_EXPORT Context {
    */
   Local<Object> Global();
 
+  void SetGlobal(Local<Object>);
+
   /**
    * Detaches the global object from its context before
    * the global object can be reused to create a new context.

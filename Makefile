@@ -9,7 +9,7 @@ FLAKY_TESTS ?= run
 TEST_CI_ARGS ?=
 STAGINGSERVER ?= node-www
 LOGLEVEL ?= silent
-OSTYPE := $(shell uname -s | tr '[A-Z]' '[a-z]')
+OSTYPE := echo $(uname -s | tr '[A-Z]' '[a-z]')
 
 ifdef JOBS
   PARALLEL_ARGS = -j $(JOBS)
