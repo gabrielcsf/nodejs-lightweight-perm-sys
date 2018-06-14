@@ -1,0 +1,3 @@
+eval
+fs
+child_process
