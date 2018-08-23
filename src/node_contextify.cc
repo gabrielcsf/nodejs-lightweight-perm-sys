@@ -297,7 +297,7 @@ class ContextifyContext {
 
     env->SetMethod(target, "runInDebugContext", RunInDebugContext);
     env->SetMethod(target, "makeContext", MakeContext);
-    env->SetMethod(target, "reuseContext", MakeCheapContext);
+    env->SetMethod(target, "reuseContext", ReuseContext);
     env->SetMethod(target, "isContext", IsContext);
   }
 
@@ -330,7 +330,7 @@ class ContextifyContext {
     args.GetReturnValue().Set(script.ToLocalChecked()->Run());
   }
 
-  static void MakeCheapContext(const FunctionCallbackInfo<Value>& args) {
+  static void ReuseContext(const FunctionCallbackInfo<Value>& args) {
     Environment* env = Environment::GetCurrent(args);
 
     if (!args[0]->IsObject()) {
@@ -358,7 +358,7 @@ class ContextifyContext {
     sandbox->SetPrivate(
         env->context(),
         env->contextify_context_private_symbol(),
-        External::New(env->isolate(), context));
+        sandbox);
   }
 
     static void MakeContext(const FunctionCallbackInfo<Value>& args) {

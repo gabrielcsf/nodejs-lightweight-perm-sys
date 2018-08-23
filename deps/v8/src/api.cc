@@ -5822,9 +5822,9 @@ void Context::SetGlobal(Local<Object> newglobal) {
   i::Handle<i::Context> context = Utils::OpenHandle(this);
   i::Handle<i::Object> newglobal_handle = Utils::OpenHandle(*newglobal);
   // context->set_extension(i::JSObject::cast(*newglobal_handle));
-  context->set_global_proxy(i::JSObject::cast(*newglobal_handle));
-  // context->set_global_proxy_object(i::JSGlobalProxy::cast(*newglobal_handle));
-  // context->set_extension(i::JSGlobalProxy::cast(*newglobal_handle));
+  // context->set_global_proxy(i::JSObject::cast(*newglobal_handle));
+  context->set_global_proxy_object(i::JSGlobalProxy::cast(*newglobal_handle));
+  // context->set_extension(i::HeapObject::cast(*newglobal_handle));
 }
 
 void Context::DetachGlobal() {

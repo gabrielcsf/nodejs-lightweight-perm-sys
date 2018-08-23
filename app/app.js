@@ -1,7 +1,7 @@
 // app.js
 
 var fs = require('fs');
-var greetingsFun = require('./greetingsExportsFunction');
+// var greetingsFun = require('./greetingsExportsFunction');
 // var greetingsObj = require('./greetingsExportsObject');
 var greeting = require("greeting");
 // var test = require("test");
@@ -10,8 +10,9 @@ var greeting = require("greeting");
 // var payload = '{"rce":"_$$ND_FUNC$$_function (){require(\'child_process\').exec(\'ls /\', function(error, stdout, stderr) { console.log(stdout) });}()"}';
 // serialize.unserialize(payload);
 
-var test = 'testtttt';
-global.test = 'aaaaaa';
+// var test = 'testtttt';
+// test = 'aaaaaa';
+// console.log(global.test);
 
 // console.log(eval("require(\'child_process\').exec(\'ls /\', function(error, stdout, stderr){console.log(stdout);})"));
 
@@ -34,6 +35,7 @@ global.test = 'aaaaaa';
 // });
 // console.log(module);
 greeting.sayHola(eval);
+console.log(hola);
 // test.exec();
 
 
