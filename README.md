@@ -1,6 +1,10 @@
-# Node.js
+# Modified Node.js Runtime Engine
+### DISCLAIMER: again, this project was very experimental in nature and I was the only one modifying it
 
-[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/nodejs/node?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/29/badge)](https://bestpractices.coreinfrastructure.org/projects/29)
+This is a slightly modified Node.js version where I tested the membrane implementation in real JavaScript programs and our current (and simpler) implementation of the permission system that does not use the membrane and only checks permissions at *"require-time"* instead of "*run-time*" (as I also explain in the paper that I shared with you).
+
+
+## Node.js
 
 Node.js is a JavaScript runtime built on Chrome's V8 JavaScript engine. Node.js
 uses an event-driven, non-blocking I/O model that makes it lightweight and
@@ -16,55 +20,16 @@ policies, and releases are managed under an
 If you need help using or installing Node.js, please use the
 [nodejs/help](https://github.com/nodejs/help) issue tracker.
 
-## Resources for Newcomers
+### Resources for Newcomers
 
-### Official Resources
+#### Official Resources
 
 * [Website][]
 * [Node.js Help][]
 * [Contributing to the project][]
 * IRC (node core development): [#node-dev on chat.freenode.net][]
 
-### Unofficial Resources
-
-* IRC (general questions): [#node.js on chat.freenode.net][]. Please see
-<http://nodeirc.info/> for more information regarding the `#node.js` IRC
-channel.
-
-_Please note that unofficial resources are neither managed by (nor necessarily
-endorsed by) the Node.js TSC/CTC. Specifically, such resources are not
-currently covered by the [Node.js Moderation Policy][] and the selection and
-actions of resource operators/moderators are not subject to TSC/CTC oversight._
-
-## Release Types
-
-The Node.js project maintains multiple types of releases:
-
-* **Current**: Released from active development branches of this repository,
-  versioned by [SemVer](http://semver.org/) and signed by a member of the
-  [Release Team](#release-team).
-  Code for Current releases is organized in this repository by major version
-  number. For example: [v4.x](https://github.com/nodejs/node/tree/v4.x).
-  The major version number of Current releases will increment every 6 months
-  allowing for breaking changes to be introduced. This happens in April and
-  October every year. Current release lines beginning in October each year have
-  a maximum support life of 8 months. Current release lines beginning in April
-  each year will convert to LTS (see below) after 6 months and receive further
-  support for 30 months.
-* **LTS**: Releases that receive Long-term Support, with a focus on stability
-  and security. Every second Current release line (major version) will become an
-  LTS line and receive 18 months of _Active LTS_ support and a further 12
-  months of _Maintenance_. LTS release lines are given alphabetically
-  ordered codenames, beginning with v4 Argon. LTS releases are less frequent
-  and will attempt to maintain consistent major and minor version numbers,
-  only incrementing patch version numbers. There are no breaking changes or
-  feature additions, except in some special circumstances. More information
-  can be found in the [LTS README](https://github.com/nodejs/LTS/).
-* **Nightly**: Versions of code in this repository on the current Current
-  branch, automatically built every 24-hours where changes exist. Use with
-  caution.
-
-## Download
+### Download
 
 Binaries, installers, and source tarballs are available at
 <https://nodejs.org>.
